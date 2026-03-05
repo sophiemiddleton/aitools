@@ -1,0 +1,19 @@
+{
+  "epochs": [
+    {
+      "name": "MDC2020",
+      "datasets": [
+        "sim.mu2e.example.mdc2020.signal.v1.art",
+        "sim.mu2e.example.mdc2020.background.v1.art"
+      ]
+    },
+    {
+      "name": "MDC2025ad",
+      "datasets": [
+        "sim.mu2e.example.mdc2025ad.ceEndpoint.v3.art",
+        "sim.mu2e.example.mdc2025ad.cosmicMix.v2.art",
+        "sim.mu2e.example.mdc2025ad.triggerTrain.v1.art"
+      ]
+    }
+  ]
+}

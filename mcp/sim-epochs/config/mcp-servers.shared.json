@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "sim-epochs": {
+      "command": "/shared/mcp/sim-epochs/current/scripts/start_mcp.sh",
+      "env": {
+        "SIM_EPOCHS_FILE": "/shared/mcp/sim-epochs/catalog/sim_catalog.json",
+        "MCP_BASH_SETUP": "/shared/mcp/sim-epochs/current/scripts/setup_cluster_env.sh"
+      }
+    }
+  }
+}

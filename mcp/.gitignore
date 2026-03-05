@@ -1,0 +1,13 @@
+# Runtime virtual environments (never commit)
+**/.venv/
+**/venv/
+
+# Python build/cache artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.egg-info/
+
+# Optional local deploy sandbox under source tree
+# (shared/group deploy should live outside the git workspace)
+deploy/
