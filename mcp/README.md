@@ -21,9 +21,14 @@ This directory contains MCP server source projects only.
   - Own install script: `sim-epochs/scripts/install.sh`
   - Own registry output target (in shared deploy tree):
     - `<deploy-root>/sim-epochs/registry/mcp-servers.json`
+- `dqm/`
+  - Source for the DQM Query Engine read-only MCP server.
+  - Own install script: `dqm/scripts/install.sh`
+  - Own registry output target (in shared deploy tree):
+    - `<deploy-root>/dqm/registry/mcp-servers.json`
 - `scripts/`
   - Cross-MCP helper scripts.
-  - `write_joint_registry.sh` creates one registry with both MCP servers.
+  - `write_joint_registry.sh` creates one registry with all MCP servers.
   - `install_user_mcp_config.sh` links or copies a user-local MCP config to the joint registry.
 - `.gitignore`
   - Excludes virtual environments and runtime artifacts (`.venv`, `venv`, caches, local deploy sandbox).
@@ -38,6 +43,7 @@ Installed MCP subtrees:
 
 - `/exp/mu2e/app/users/mu2epro/mcp/deploy/metacat`
 - `/exp/mu2e/app/users/mu2epro/mcp/deploy/sim-epochs`
+- `/exp/mu2e/app/users/mu2epro/mcp/deploy/dqm`
 
 Each subtree follows:
 
@@ -52,9 +58,11 @@ Each subtree follows:
   - `sim-epochs/scripts/install.sh /exp/mu2e/app/users/mu2epro/mcp/deploy/sim-epochs <version> [catalog] [group]`
 2. Install metacat (as `mu2epro`):
   - `metacat/scripts/install.sh /exp/mu2e/app/users/mu2epro/mcp/deploy/metacat <version> [group]`
-3. Generate combined registry:
+3. Install dqm (as `mu2epro`):
+  - `dqm/scripts/install.sh /exp/mu2e/app/users/mu2epro/mcp/deploy/dqm <version> [group]`
+4. Generate combined registry:
    - `scripts/write_joint_registry.sh /exp/mu2e/app/users/mu2epro/mcp/deploy`
-4. Point a user config at the joint registry:
+5. Point a user config at the joint registry:
   - `scripts/install_user_mcp_config.sh /exp/mu2e/app/users/mu2epro/mcp/deploy/registry/mcp-servers.json ~/.config/llm-harness/mcp.json link`
 
 Default combined registry output:
