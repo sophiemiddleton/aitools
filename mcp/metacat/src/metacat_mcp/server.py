@@ -11,13 +11,33 @@ from mcp.server.fastmcp import FastMCP
 
 LOGGER = logging.getLogger("metacat_mcp")
 
-READ_ONLY_INSTRUCTIONS = (
-    "Read-only metacat MCP server. Use this server for dataset and file discovery only. "
-    "Do not perform write operations. Tools expose explicit filters and pagination. "
-    "Ownership/namespace guidance: collaboration-owned datasets use mu2e naming (always 'mu2e', "
-    "never 'mu2'). User-owned datasets should use namespace <username> or <username>_*; "
-    "for requests like 'my datasets', interpret this as current-user namespaces in those forms."
-)
+READ_ONLY_INSTRUCTIONS = """
+Read-only metacat MCP server for Mu2e data discovery.
+
+JARGON INTERPRETATION GUIDE:
+- 'art files' or 'art datasets' → use name_pattern='*.art'
+- 'raw data' or 'raw files' → use name_pattern='raw.*'
+- 'simulation' or 'sim data' → use name_pattern='sim.*'
+- 'digitized' or 'dig data' → use name_pattern='dig.*'
+- 'reconstructed' or 'reco data' → use name_pattern='rec.*' or 'mcs.*'
+- 'ntuples' → use name_pattern='ntd.*.root' for data, 'nts.*.root' for simulation
+- 'log files' → use name_pattern='*.log'
+- 'production datasets' → use namespace='mu2e' (collaboration-owned)
+- 'my datasets' or 'user datasets' → use namespace='<username>' or '<username>_*'
+- 'recent datasets' → use created_after_iso_utc with appropriate date
+
+FILE NAMING CONVENTION:
+Mu2e files follow: data_tier.owner.description.configuration.sequencer.file_format
+- data_tier: sim, dig, mcs, raw, rec, nts, ntd, etc.
+- owner: 'mu2e' for production, username for personal
+- file_format: .art, .root, .fcl, .log, etc.
+
+NAMESPACE GUIDANCE:
+- Collaboration datasets: namespace='mu2e' (always 'mu2e', never 'mu2')
+- User datasets: namespace='<username>' or '<username>_*'
+
+Use discover_datasets with appropriate filters. Do not perform write operations.
+"""
 
 
 def _configure_logging() -> None:
@@ -149,8 +169,11 @@ def create_mcp_server() -> FastMCP:
         rows: list[dict[str, Any]] = []
         warnings: list[str] = []
 
+        # Use wildcard pattern for namespace matching
+        namespace_pattern = f"{namespace}*" if namespace and not namespace.endswith("*") else namespace
+        
         datasets = client.list_datasets(
-            namespace_pattern=namespace if namespace else None,
+            namespace_pattern=namespace_pattern,
             with_counts=False,
         )
 
