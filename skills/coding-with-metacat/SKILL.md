@@ -72,15 +72,21 @@ python3 -c "import metacat; print(metacat.__version__)"
 python3 -c "import os; print('METACAT_SERVER_URL=', os.getenv('METACAT_SERVER_URL'))"
 ```
 
-**Configuration:**
-- Metacat automatically reads from `~/.metacat/` or `METACAT_AUTH` environment variables
-- Authentication is generally automatic if you have Kerberos credentials
-- Run `kinit` if needed to refresh credentials
+**Authentication:**
+
+See [understanding-data-handling](../understanding-data-handling/SKILL.md) for the
+full Kerberos → OAuth → service-login flow.
+
+Short form for interactive use:
+```bash
+getToken                           # Refresh OAuth token (~2h)
+metacat auth login -m token $USER  # Authenticate metacat session
+```
 
 **Agent checklist (setup):**
 - Verify `MetaCatClient` import succeeds before generating workflow code
 - Prefer environment-driven endpoint instead of hardcoding server URL
-- Fail fast with a clear message if authentication is missing
+- If auth errors occur, direct user to run `getToken` then `metacat auth login -m token $USER`
 
 ---
 
