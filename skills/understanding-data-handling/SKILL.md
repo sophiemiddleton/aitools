@@ -255,11 +255,46 @@ mdh copy-file -s -l scratch FILENAME
 
 ### Authentication
 
-No special authentication needed for most operations if you have a Kerberos ticket.
+Mu2e services (metacat, Data Dispatcher / ddisp, SAM) share a common auth chain
+built on Kerberos → OAuth token. The same flow applies to all of them.
+
+#### Auth chain overview
+
+```
+Kerberos identity  →  OAuth token (getToken)  →  service login
+```
+
+#### User account setup (interactive)
 
 ```bash
-mu2einit           # Sets up environment
-kinit              # Get Kerberos ticket (if needed)
+mu2einit           # Set up Mu2e environment (sets service URLs, loads modules)
+getToken           # Exchange Kerberos ticket for an OAuth token (~2h validity)
+muse setup ops     # Load metacat, ddisp, mdh and related tools into path
+
+# Authenticate each service using the OAuth token:
+metacat auth login -m token $USER
+ddisp login -m token $USER
+```
+
+- `getToken` derives the OAuth token from the active Kerberos ticket (`kinit`).
+- Run `getToken` again at any time to refresh; no need to re-login to services.
+- The service auth sessions last as long as the OAuth token (~2h).
+- `kinit` is only needed if the Kerberos ticket itself has expired.
+
+#### Production / automated accounts (e.g. mu2epro)
+
+- Cron jobs automatically refresh the OAuth token and re-authenticate to
+  metacat and ddisp; no manual steps are needed.
+- The same `getToken` / `metacat auth login` / `ddisp login` commands underlie
+  the cron workflow.
+
+#### Quick reference
+
+```bash
+kinit                              # Renew Kerberos ticket if expired
+getToken                           # (Re)issue OAuth token from Kerberos
+metacat auth login -m token $USER  # Authenticate CLI / Python API to metacat
+ddisp   login -m token $USER       # Authenticate CLI / Python API to ddisp
 ```
 
 ### For AI Assistants
