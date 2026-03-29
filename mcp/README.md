@@ -26,9 +26,17 @@ This directory contains MCP server source projects only.
   - Own install script: `dqm/scripts/install.sh`
   - Own registry output target (in shared deploy tree):
     - `<deploy-root>/dqm/registry/mcp-servers.json`
+- `code-index/` (optional)
+  - Source wrapper for upstream `code-index-mcp`.
+  - Own install script: `code-index/scripts/install.sh`
+  - Logical server names in registries:
+    - `py-index-central` for shared repos and shared cached index
+    - `py-index-local` for user-local indexing on demand
+  - Physical deploy path remains `<deploy-root>/code-index`.
 - `scripts/`
   - Cross-MCP helper scripts.
   - `write_joint_registry.sh` creates one registry with all MCP servers.
+    - Adds `py-index-central`/`py-index-local` when `<deploy-root>/code-index/current` exists.
   - `install_user_mcp_config.sh` links or copies a user-local MCP config to the joint registry.
 - `.gitignore`
   - Excludes virtual environments and runtime artifacts (`.venv`, `venv`, caches, local deploy sandbox).
@@ -44,6 +52,7 @@ Installed MCP subtrees:
 - `/exp/mu2e/app/users/mu2epro/mcp/deploy/metacat`
 - `/exp/mu2e/app/users/mu2epro/mcp/deploy/sim-epochs`
 - `/exp/mu2e/app/users/mu2epro/mcp/deploy/dqm`
+- `/exp/mu2e/app/users/mu2epro/mcp/deploy/code-index` (optional; serves `py-index-*`)
 
 Each subtree follows:
 
@@ -60,10 +69,21 @@ Each subtree follows:
   - `metacat/scripts/install.sh /exp/mu2e/app/users/mu2epro/mcp/deploy/metacat <version> [group]`
 3. Install dqm (as `mu2epro`):
   - `dqm/scripts/install.sh /exp/mu2e/app/users/mu2epro/mcp/deploy/dqm <version> [group]`
-4. Generate combined registry:
+4. Install Python/general code index (optional, as `mu2epro`):
+  - `code-index/scripts/install.sh /exp/mu2e/app/users/mu2epro/mcp/deploy/code-index <tag|latest> [group]`
+  - Default central repo root: `/exp/mu2e/app/users/mu2epro/mcp/deploy/code-index/repos`
+  - Default central index root: `/exp/mu2e/app/users/mu2epro/mcp/deploy/code-index/indexer`
+  - Registry entries are named `py-index-central` and `py-index-local`
+5. Generate combined registry:
    - `scripts/write_joint_registry.sh /exp/mu2e/app/users/mu2epro/mcp/deploy`
-5. Point a user config at the joint registry:
+6. Point a user config at the joint registry:
   - `scripts/install_user_mcp_config.sh /exp/mu2e/app/users/mu2epro/mcp/deploy/registry/mcp-servers.json ~/.config/llm-harness/mcp.json link`
+
+## Python/General index behavior
+
+- `py-index-central` is intended for shared centrally cached repos/indexes.
+- `py-index-local` is intended for user-local indexing on demand.
+- Keep deep/local indexing user-driven, not automatic.
 
 Default combined registry output:
 
