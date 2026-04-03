@@ -194,10 +194,20 @@ Example repo list file:
 
 ```text
 # repo [branch]
+# repo branch:<branch>
+# repo tag:<tag>
 Mu2e/Offline main
-Mu2e/Production main
-Mu2e/aitools main
+Mu2e/Production branch:main
+Mu2e/aitools tag:v1.0.0
 ```
+
+Rules:
+
+- Omitted second column means the default branch (`main` unless overridden).
+- A plain second column like `main` keeps the old behavior and is treated as a branch.
+- Use `branch:<name>` for an explicit branch.
+- Use `tag:<name>` to pin indexing to a tag.
+- Tagged checkouts are cloned into a separate repo directory, so the same repo can be indexed at both a branch and a tag.
 
 Run fast shallow refreshes for changed repos:
 
@@ -220,7 +230,8 @@ python3 scripts/sync_and_index_repos.py \
 Notes:
 
 - The script clones missing repos into `<deploy-root>/repos`.
-- Existing repos are fetched and fast-forwarded to the configured branch head.
+- Branch entries are fetched and fast-forwarded to the configured branch head.
+- Tag entries fetch tags and check out the requested tag in detached HEAD mode.
 - Fast mode runs the MCP shallow index (`refresh_index`).
 - Deep mode runs `build_deep_index` and records the last indexed commit.
 - Deep indexing is not incremental in upstream code; the script skips unchanged
