@@ -17,7 +17,9 @@ class RepoSpec:
     clone_url: str
     owner: str
     name: str
-    branch: str
+    ref: str
+    ref_type: str
+    legacy_identity: bool = False
 
     @property
     def slug(self) -> str:
@@ -25,7 +27,20 @@ class RepoSpec:
 
     @property
     def directory_name(self) -> str:
-        return self.name
+        if self.legacy_identity and self.ref_type == "branch":
+            return self.name
+        safe_ref = "".join(ch if ch.isalnum() or ch in ("-", "_", ".") else "_" for ch in self.ref)
+        return f"{self.name}__{self.ref_type}__{safe_ref}"
+
+    @property
+    def state_key(self) -> str:
+        if self.legacy_identity and self.ref_type == "branch":
+            return self.slug
+        return f"{self.slug}@{self.ref_type}:{self.ref}"
+
+    @property
+    def display_ref(self) -> str:
+        return f"{self.ref_type}:{self.ref}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -77,7 +92,23 @@ def parse_repo_specs(path: Path, default_owner: str, default_branch: str, github
 
         parts = line.split()
         repo_token = parts[0]
-        branch = parts[1] if len(parts) > 1 else default_branch
+        ref = default_branch
+        ref_type = "branch"
+        legacy_identity = True
+
+        if len(parts) > 1:
+            ref_token = parts[1]
+            if ":" in ref_token:
+                ref_type, ref = ref_token.split(":", 1)
+                ref_type = ref_type.strip().lower()
+                ref = ref.strip()
+                legacy_identity = False
+                if ref_type not in {"branch", "tag"} or not ref:
+                    raise ValueError(
+                        f"Invalid repo spec '{line}'. Use repo [branch] or repo branch:<name> or repo tag:<name>"
+                    )
+            else:
+                ref = ref_token
 
         if repo_token.startswith(("https://", "http://", "git@", "file://")) or repo_token.startswith("/"):
             clone_url = repo_token
@@ -104,7 +135,17 @@ def parse_repo_specs(path: Path, default_owner: str, default_branch: str, github
                 owner, name = default_owner, repo_token
             clone_url = f"{github_base.rstrip('/')}/{owner}/{name}.git"
 
-        specs.append(RepoSpec(raw=line, clone_url=clone_url, owner=owner, name=name, branch=branch))
+        specs.append(
+            RepoSpec(
+                raw=line,
+                clone_url=clone_url,
+                owner=owner,
+                name=name,
+                ref=ref,
+                ref_type=ref_type,
+                legacy_identity=legacy_identity,
+            )
+        )
     return specs
 
 
@@ -125,9 +166,13 @@ def ensure_repo(spec: RepoSpec, repos_root: Path) -> tuple[Path, str]:
         run(["git", "clone", spec.clone_url, str(repo_dir)])
 
     run(["git", "remote", "set-url", "origin", spec.clone_url], cwd=repo_dir)
-    run(["git", "fetch", "origin", spec.branch], cwd=repo_dir)
-    run(["git", "checkout", "-B", spec.branch, f"origin/{spec.branch}"], cwd=repo_dir)
-    run(["git", "pull", "--ff-only", "origin", spec.branch], cwd=repo_dir)
+    if spec.ref_type == "branch":
+        run(["git", "fetch", "origin", spec.ref], cwd=repo_dir)
+        run(["git", "checkout", "-B", spec.ref, f"origin/{spec.ref}"], cwd=repo_dir)
+        run(["git", "pull", "--ff-only", "origin", spec.ref], cwd=repo_dir)
+    else:
+        run(["git", "fetch", "--tags", "origin"], cwd=repo_dir)
+        run(["git", "checkout", "--detach", f"refs/tags/{spec.ref}"], cwd=repo_dir)
     head = run(["git", "rev-parse", "HEAD"], cwd=repo_dir, capture=True).stdout.strip()
     return repo_dir, head
 
@@ -255,32 +300,34 @@ def main() -> int:
     for spec in specs:
         try:
             repo_dir, head = ensure_repo(spec, repos_root)
-            repo_state = state["repos"].setdefault(spec.slug, {})
-            repo_state["branch"] = spec.branch
+            repo_state = state["repos"].setdefault(spec.state_key, {})
+            repo_state["ref"] = spec.ref
+            repo_state["ref_type"] = spec.ref_type
             repo_state["path"] = str(repo_dir)
             repo_state["head"] = head
+            repo_state["slug"] = spec.slug
 
             if args.mode == "fast":
                 mcp_stderr = run_index_cycle(start_script, repo_dir, indexer_root, "fast")
                 repo_state["last_fast_head"] = head
                 repo_state["last_fast_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                print(f"FAST_OK {spec.slug} {head}")
+                print(f"FAST_OK {spec.state_key} {head}")
                 if mcp_stderr.strip():
-                    print(f"MCP_STDERR_BEGIN {spec.slug}")
+                    print(f"MCP_STDERR_BEGIN {spec.state_key}")
                     print(mcp_stderr.rstrip())
-                    print(f"MCP_STDERR_END {spec.slug}")
+                    print(f"MCP_STDERR_END {spec.state_key}")
             else:
                 if not args.force_deep and repo_state.get("last_deep_head") == head:
-                    print(f"DEEP_SKIP {spec.slug} {head}")
+                    print(f"DEEP_SKIP {spec.state_key} {head}")
                 else:
                     mcp_stderr = run_index_cycle(start_script, repo_dir, indexer_root, "deep")
                     repo_state["last_deep_head"] = head
                     repo_state["last_deep_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                    print(f"DEEP_OK {spec.slug} {head}")
+                    print(f"DEEP_OK {spec.state_key} {head}")
                     if mcp_stderr.strip():
-                        print(f"MCP_STDERR_BEGIN {spec.slug}")
+                        print(f"MCP_STDERR_BEGIN {spec.state_key}")
                         print(mcp_stderr.rstrip())
-                        print(f"MCP_STDERR_END {spec.slug}")
+                        print(f"MCP_STDERR_END {spec.state_key}")
         except Exception as exc:
             failures += 1
             print(f"FAIL {spec.raw}: {exc}", file=sys.stderr)
