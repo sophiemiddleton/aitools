@@ -72,14 +72,21 @@ print("Pyutils imported successfully!")
 
 ### Environment Setup
 
-For full Mu2e environment integration:
+The preferred way to set up the environment for working with pyutils is using the standard pyenv environment:
+
+```bash
+mu2einit  # or "source /cvmfs/mu2e.opensciencegrid.org/setupmu2e-art.sh"
+pyenv ana # Setup the current environment
+```
+
+For full Mu2e environment integration without pyenv, you can alternatively use:
 
 ```bash
 mu2einit
 muse setup
 ```
 
-This ensures ROOT, art modules, and other Mu2e dependencies are available alongside pyutils.
+Either approach ensures ROOT, art modules, and other Mu2e dependencies are available alongside pyutils.
 
 ---
 
