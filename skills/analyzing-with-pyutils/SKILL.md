@@ -121,9 +121,11 @@ momentum_mag = vector.get_mag(trksegs_masked, "mom")  # May fail!
 | Branch | Type | Fields Available | Purpose |
 |--------|------|------------------|---------|
 | `trksegs` | Vector-of-vector | `mom` (XYZVectorF), `pos` (XYZVectorF), `time`, `dmom`, `momerr` | Track positions and momenta at detector surfaces |
-| `trksegpars_lh` | Vector-of-vector | *Parameters may not be available in current data* | LoopHelix fit parameters (NOT RECOMMENDED) |
-| `trksegpars_ch` | Vector-of-vector | Same as LoopHelix | CentralHelix fit parameters (field-on cosmics) |
-| `trksegpars_kl` | Vector-of-vector | Same as LoopHelix | KinematicLine fit parameters (field-off cosmics) |
+| `trksegpars_lh` | Vector-of-vector | `rad`, `lam`, `cx`, `cy`, `phi0`, `t0` + errors | LoopHelix fit parameters (looping tracks; d0/tanDip/maxr deprecated) |
+| `trksegpars_ch` | Vector-of-vector | `phi0`, `omega`, `z0`, `tanDip`, `t0` + errors (d0/maxr deprecated) | CentralHelix fit parameters (field-on cosmics) |
+| `trksegpars_kl` | Vector-of-vector | `phi0`, `z0`, `theta`, `mom`, `t0` + errors (d0 deprecated) | KinematicLine fit parameters (field-off cosmics) |
+
+> **DEPRECATED**: The `d0`, `tandip`, and `maxr` parameters in LoopHelix fit branches are deprecated. Use the number of surface intersections (accessible via `trksegs` branch length) instead for track quality assessment.
 | `trkqual` | Vector | `result` | Track fit quality metric (0-1) |
 | `trkpid` | Vector | `result` | PID MVA result |
 | `crvcoincs` | Vector | `time`, `nHits`, `PEs` | CRV coincidence timing and energy |
