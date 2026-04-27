@@ -396,18 +396,6 @@ pip install -e .
 python -c "from pyutils.pyprocess import Skeleton; print('OK')"
 ```
 
-### Issue: ModuleNotFoundError: No module named 'ROOT'
-
-**Problem:** ROOT library not available
-
-**Solution:**
-```bash
-# Always run mu2einit first
-mu2einit
-
-# Verify ROOT is available
-python -c "import ROOT; print(ROOT.__version__)"
-```
 
 ### Issue: FileNotFoundError: No such file or directory
 
