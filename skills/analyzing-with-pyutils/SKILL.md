@@ -1,92 +1,30 @@
 ---
-name: coding-with-pyutils
-description: Set up and use Mu2e pyutils library to develop custom processor classes for data analysis pipelines. Use when building data processing workflows, creating reusable analysis components, or extending the pyutils framework with custom processors.
-compatibility: Requires mu2einit, muse setup, Python 3.7+, git access to github.com/Mu2e/pyutils
+name: analyzing-with-pyutils
+description: Perform physics analysis with Mu2e pyutils - extract detector data, define physics cuts with CutManager, fill histograms, and build complete analysis pipelines. Use when developing analysis workflows, selecting physics events, or calculating detector quantities.
+compatibility: Requires setting-up-pyutils skill completed, pyutils installed, Python 3.7+
 metadata:
   version: "1.0.0"
-  last-updated: "2026-04-20"
+  last-updated: "2026-04-27"
 ---
 
-# Coding with Pyutils
+# Analyzing with Pyutils
 
 ## Overview
 
-Use this skill when building Python processors and analysis workflows using the Mu2e pyutils library.
+Use this skill to develop physics analysis workflows with pyutils. This assumes you've completed the `setting-up-pyutils` skill and have a working processor environment.
 
 Primary use cases:
+- Understand EventNtuple branch structure and field access
+- Define physics cuts and track selection efficiency
+- Extract high-level physics quantities (momentum, angles, energy)
+- Fill histograms and analysis distributions
+- Build complete analysis processors with parallel file processing
 
-- Set up and install the pyutils repository locally
-- Create custom processor classes for data transformation and analysis
-- Build analysis pipelines by composing processors
-- Extend the pyutils framework with reusable components
-- Process art ROOT files and metadata for analysis
-
-The pyutils library provides a framework for building modular, composable data processors that operate on Mu2e detector data and simulation output.
-
----
-
-## Setup and Installation
-
-### Clone the Repository
-
-Start by cloning the pyutils repository from GitHub:
-
-```bash
-cd ~/src  # or your preferred development directory
-git clone https://github.com/Mu2e/pyutils.git
-cd pyutils
-```
-
-### Install Dependencies
-
-Install pyutils and its dependencies in development mode:
-
-```bash
-# Option 1: Using pip (recommended for development)
-pip install -e .
-
-# Option 2: Using setup.py directly
-python setup.py develop
-
-# Option 3: Using conda (if conda environment is preferred)
-conda install -c conda-forge root pandas numpy scipy matplotlib
-pip install -e .
-```
-
-### Verify Installation
-
-Test that pyutils is properly installed:
-
-```bash
-python -c "import pyutils; print(pyutils.__version__)"
-```
-
-Quick import test to verify core modules load:
-
-```python
-from pyutils.processor import Processor
-from pyutils.histogram import Histogram
-from pyutils.tree import Tree
-print("Pyutils imported successfully!")
-```
-
-### Environment Setup
-
-The preferred way to set up the environment for working with pyutils is using the standard pyenv environment:
-
-```bash
-mu2einit  # or "source /cvmfs/mu2e.opensciencegrid.org/setupmu2e-art.sh"
-pyenv ana # Setup the current environment
-```
-
-For full Mu2e environment integration without pyenv, you can alternatively use:
-
-```bash
-mu2einit
-muse setup
-```
-
-Either approach ensures ROOT, art modules, and other Mu2e dependencies are available alongside pyutils.
+Key outcomes:
+- Navigate Mu2e detector data hierarchy (events → tracks → segments)
+- Use CutManager to track cut efficiency
+- Implement analysis workflows with Vector and Select utilities
+- Diagnose and debug data access patterns
 
 ---
 
@@ -168,116 +106,11 @@ with uproot.open("your_file.root") as f:
 
 ---
 
-## Processor Class Architecture
+## Analysis Processor Architecture
 
-### Base Processor Hierarchy: Skeleton
+### Implementing Key Analysis Methods
 
-All Mu2e processors inherit from the `Skeleton` class (via `pyutils.pyprocess`), which provides:
-
-- **Parallel file processing**: Automatic multithreading/multiprocessing across input files
-- **Lifecycle management**: Automatic call of `begin_job()`, `process_file()`, `end_job()`
-- **Result aggregation**: Combines results from multiple files via `postprocess()`
-- **Remote file support**: Built-in mdh integration for fetching files from dCache/tape
-- **Logging and configuration**: Verbosity control, file location management
-
-Key configuration parameters in `__init__`:
-
-```python
-from pyutils.pyprocess import Processor, Skeleton
-from pyutils.pylogger import Logger
-from pyutils.pycut import CutManager
-from pyutils.pyselect import Select
-
-class AnaProcessor(Skeleton):
-    """Custom analysis processor inheriting from Skeleton."""
-    
-    def __init__(self, file_list_path, jobs=1, sign="minus", location='disk'):
-        """Initialize processor with Skeleton framework."""
-        super().__init__()
-        
-        # Skeleton configuration
-        self.file_list_path = file_list_path
-        self.tree_path = "EventNtuple/ntuple"
-        self.use_remote = (location != "local")  # Fetch from dCache if not local
-        self.location = location
-        self.max_workers = jobs                  # Parallel file processing
-        self.verbosity = 2                       # Logging verbosity
-        self.use_processes = True                # Use processes not threads
-        
-        # Define branches to read (nested hierarchy: events → tracks → segments)
-        self.branches = {
-            "evt": ["run", "subrun", "event"],  # Event-level info
-            "trk": ["trk.pdg", "trk.status", "trkqual.result"],  # Track-level
-            "trkfit": ["trksegs", "trksegpars_lh"],  # Track fit segments
-            "crv": ["crvcoincs.time", "crvcoincs.PEs"],  # CRV coincidences
-        }
-        
-        # Analysis tools
-        self.selector = Select(verbosity=1)
-        self.cut_manager = CutManager(verbosity=0)
-        self.logger = Logger(print_prefix="[AnaProcessor]", verbosity=1)
-        self.sign = sign  # "minus" for electrons, "plus" for positrons
-```
-
-### Processor Class Lifecycle
-
-```python
-class AnaProcessor(Skeleton):
-    
-    def begin_job(self):
-        """Called once at start of entire analysis.
-        
-        Set up shared resources: histograms, counters, cut definitions.
-        """
-        self.logger.log("Beginning analysis job", "info")
-        self.event_count = 0
-        self.h_momentum = self.create_histogram(...)
-    
-    def process_file(self, file_name):
-        """Called for each input file (runs in parallel).
-        
-        Extract data, apply cuts, accumulate results.
-        Returns a result dict that will be combined by postprocess().
-        """
-        processor = Processor(
-            use_remote=self.use_remote,
-            location=self.location,
-            verbosity=0  # Reduce worker verbosity
-        )
-        
-        # Load raw data
-        data = processor.process_data(
-            file_name=file_name,
-            branches=self.branches
-        )
-        
-        # Apply analysis
-        results = self.analyze(data)
-        return results
-    
-    def postprocess(self, results):
-        """Called once after all files processed.
-        
-        Combine results from all workers, compute final statistics.
-        """
-        combined = self.combine_results(results)
-        self.logger.log(f"Total events: {combined['total_events']}", "info")
-        return combined
-    
-    def end_job(self):
-        """Called once at end of analysis.
-        
-        Save outputs, print summary statistics.
-        """
-        self.logger.log("Analysis complete", "success")
-        self.save_histograms("analysis_output.root")
-    
-    def execute(self):
-        """Main entry point - runs the entire analysis pipeline."""
-        return super().execute()
-```
-
-### Essential Methods to Implement
+Once you have a basic processor working (from `setting-up-pyutils`), implement these core analysis methods:
 
 #### 1. `process_file(file_name)` - Extract and Analyze Data
 
@@ -559,7 +392,7 @@ def end_job(self):
 
 ## Complete Example: Mu2e Electron Analysis Processor
 
-Here's a realistic, complete example based on actual Mu2e analysis code that demonstrates the full processor pattern:
+Here's a realistic, complete example based on actual Mu2e analysis code that demonstrates the full analysis pattern:
 
 ```python
 import awkward as ak
@@ -801,7 +634,7 @@ if __name__ == "__main__":
 
 ---
 
-## Common Patterns and Best Practices
+## Common Analysis Patterns
 
 ### 1. Working with Awkward Arrays for Nested Data
 
@@ -923,25 +756,23 @@ from pyutils.pycut import CutManager
 
 cut_manager = CutManager(verbosity=1)
 
-# Add cuts with clear descriptions and optional group names
+# Add cuts with clear descriptions
 cut_manager.add_cut(
     name="is_electron",
     description="Reco track matches electron hypothesis",
     mask=is_electron,
-    active=True,
-    group="particle_id"  # Optional: organize cuts into groups
+    active=True
 )
 
 cut_manager.add_cut(
     name="good_quality",
     description="Track fit quality > 0.2",
     mask=good_quality,
-    active=True,
-    group="quality_cuts"
+    active=True
 )
 
 # Combine all active cuts into a single boolean mask
-combined_mask = cut_manager.combine_cuts(active_only=True)  # Returns boolean array
+combined_mask = cut_manager.get_mask(active_only=True)  # Returns boolean array
 
 # Filter data using combined mask
 filtered_data = data[combined_mask]
@@ -957,104 +788,6 @@ print(df_cut_flow.to_string(index=False))
 # Combine cut flows from multiple files (parallel processing)
 combined_flow = cut_manager.combine_cut_flows([flow1, flow2, flow3], format_as_df=True)
 ```
-
-#### CutManager API Reference
-
-```python
-from pyutils.pycut import CutManager
-
-cut_manager = CutManager(verbosity=0)
-
-# Core methods:
-
-# Add a cut
-cut_manager.add_cut(
-    name="cut_name",           # Unique identifier
-    description="...",         # Human-readable description
-    mask=boolean_array,        # Boolean mask (same shape as data)
-    active=True,              # Enable by default
-    group="group_name"        # Optional: for organizing related cuts
-)
-
-# Combine active cuts into single boolean mask
-combined_mask = cut_manager.combine_cuts(
-    cut_names=None,           # None = use all cuts, or list specific names
-    active_only=True          # Only include active cuts
-)
-
-# Generate cut flow statistics
-cut_flow = cut_manager.create_cut_flow(data)  # Pass full data array
-
-# Format cut flow for output
-df = cut_manager.format_cut_flow(cut_flow, include_group=True)
-
-# Combine cut flows from parallel files
-combined = cut_manager.combine_cut_flows(
-    cut_flow_list,            # List of cut flows from each file
-    format_as_df=True         # Return as DataFrame
-)
-
-# Cut control and state management:
-
-# Enable/disable specific cuts
-cut_manager.toggle_cut({"cut_name_1": False, "cut_name_2": True})
-
-# Enable/disable all cuts in a group
-cut_manager.toggle_group({"quality_cuts": True, "geometry_cuts": False})
-
-# Save current cut configuration
-cut_manager.save_state("good_quality_only")
-
-# Restore saved configuration
-cut_manager.restore_state("good_quality_only")
-
-# Get all active cuts
-active = cut_manager.get_active_cuts()
-
-# Get organized group information
-groups = cut_manager.get_groups()
-```
-
-#### Important Notes on CutManager
-
-1. **`combine_cuts()` vs `create_cut_flow()`**:
-   - `combine_cuts()`: Returns a boolean mask for filtering data
-   - `create_cut_flow()`: Takes data array and returns efficiency statistics for each cut
-
-2. **Cut flow requires full data**: Must pass entire data array to `create_cut_flow()` to calculate how many events pass each cut sequentially
-
-3. **Parallel processing**: When processing multiple files in parallel, use `combine_cut_flows()` to merge cut statistics from each worker
-
-4. **Filtering nested data structures - Important Pattern**:
-   
-   **Challenge**: Filtering deeply nested awkward arrays (events → tracks → segments) with track-level masks can cause dimension mismatches
-   
-   **Best Practice**: Use CutManager for conceptual cut tracking and efficiency reporting, but fill histograms from unfiltered data:
-
-```python
-# Define cuts for tracking efficiency
-cut_manager = CutManager()
-cut_manager.add_cut(name="quality", description="...", mask=quality_mask, active=True)
-
-# Get cut flow statistics (doesn't require filtering data)
-cut_flow = cut_manager.create_cut_flow(data)  # Pass full data
-
-# Fill histograms from unfiltered data
-# The cut_flow shows what fraction pass each cut
-for event in data:
-    # Your analysis here
-
-# Format results
-df = cut_manager.format_cut_flow(cut_flow)
-print(df)  # Shows efficiency at each cut stage
-```
-
-   **Why**: The `combine_cuts()` mask, while conceptually correct, can be incompatible with certain awkward array layouts when used for slicing nested structures. The CutManager API emphasizes tracking efficiency through `create_cut_flow()` rather than physical data filtering.
-
-5. **Data filtering when needed**: If you must filter data before histogram processing, consider:
-   - Filtering at specific nesting levels (event or track level, not mixed)
-   - Using `combine_cuts()` with individual branches rather than the full structure
-   - Creating new cleaned branches rather than trying to index-filter existing ones
 
 ### 5. Using Select Utilities for Common Operations
 
@@ -1087,31 +820,21 @@ has_trigger = selector.get_triggers(
 )
 ```
 
-### 6. Parallel Processing and Memory Management
+### 6. Memory Management in Parallel Processing
 
 Process multiple files efficiently:
 
 ```python
 class MyProcessor(Skeleton):
-    def __init__(self, file_list, jobs=4):
-        super().__init__()
-        self.file_list_path = file_list
-        self.max_workers = jobs        # Parallel workers
-        self.use_processes = True      # Use processes not threads
-        self.verbosity = 0             # Reduce worker output
-    
     def process_file(self, file_name):
         # Each file runs in separate process
         try:
-            # Do work
+            data = processor.process_data(file_name, branches)
             results = analyze(data)
             return results
-        except Exception as e:
-            self.logger.log(f"Error: {e}", "error")
-            return None
         finally:
             import gc
-            gc.collect()  # Clean up after each file
+            gc.collect()  # Force cleanup after each file
     
     def postprocess(self, results):
         # Combine all results (runs in main process)
@@ -1147,67 +870,9 @@ except Exception as e:
     return None
 ```
 
-### 8. Logging and Debugging
-
-Use Logger for consistent output:
-
-```python
-from pyutils.pylogger import Logger
-
-logger = Logger(print_prefix="[MyAnalysis]", verbosity=2)
-
-logger.log("Starting analysis", "info")
-logger.log("Processing 1000 events", "debug")
-logger.log("Analysis complete", "success")
-logger.log(f"Warning: {count} events had issues", "warning")
-logger.log(f"Critical: Failed to open file", "error")
-```
-
 ---
 
-## Troubleshooting
-
-### Issue: KeyError when accessing nested branches
-
-**Problem:** `data["trkfit"]["trksegs"]["nonexistent"]` fails
-
-**Solution:** Check available branches and handle gracefully:
-
-```python
-# List available branches
-print(data["trkfit"].fields)  # Shows nested field names
-
-# Use try/except for optional data
-try:
-    field = data["trkfit"]["trksegpars_lh"]["t0err"]
-except (KeyError, AttributeError):
-    logger.log("Branch not available, skipping", "warning")
-    field = None
-```
-
-### Issue: Memory overflow with large files
-
-**Problem:** Processing many large ROOT files runs out of memory
-
-**Solution:** Ensure garbage collection and use remote file streaming:
-
-```python
-def process_file(self, file_name):
-    """Process with cleanup."""
-    try:
-        data = processor.process_data(file_name, self.branches)
-        # ... analysis ...
-        results = analyze(data)
-    finally:
-        import gc
-        gc.collect()  # Force cleanup
-    
-    return results
-
-# In __init__: use remote files with mdh instead of loading all locally
-self.use_remote = True  # Stream from dCache
-self.location = 'disk'  # Not 'local'
-```
+## Troubleshooting Physics Analysis
 
 ### Issue: Cut flow shows all zeros
 
@@ -1230,6 +895,24 @@ df = cut_manager.format_cut_flow(flow)
 print(df)  # See raw numbers before combining
 ```
 
+### Issue: KeyError when accessing nested branches
+
+**Problem:** `data["trkfit"]["trksegs"]["nonexistent"]` fails
+
+**Solution:** Check available branches:
+
+```python
+# List available branches
+print(data["trkfit"].fields)  # Shows nested field names
+
+# Use try/except for optional data
+try:
+    field = data["trkfit"]["trksegpars_lh"]["t0err"]
+except (KeyError, AttributeError):
+    logger.log("Branch not available, skipping", "warning")
+    field = None
+```
+
 ### Issue: Awkward Array dimension mismatch
 
 **Problem:** `ValueError: inconsistent data` when concatenating results
@@ -1241,102 +924,85 @@ print(df)  # See raw numbers before combining
 for i, result in enumerate(results):
     if result is None:
         continue
-    
-    # Check structure
     print(f"File {i}: {result['filtered_data'].fields}")
-    
+
 # Then concatenate only valid results
 valid_results = [r for r in results if r is not None]
 combined = ak.concatenate([r['filtered_data'] for r in valid_results])
 ```
 
-### Issue: Parallel processing errors not visible
+### Issue: Memory overflow with large files
 
-**Problem:** Worker process throws error that gets lost
+**Problem:** Processing many large ROOT files runs out of memory
 
-**Solution:** Increase verbosity and check individual file results:
-
-```python
-class MyProcessor(Skeleton):
-    def __init__(self, ...):
-        # Set higher verbosity
-        self.verbosity = 2
-        # Reduce workers to debug
-        self.max_workers = 1
-    
-    def process_file(self, file_name):
-        try:
-            # ... work ...
-        except Exception as e:
-            self.logger.log(f"File {file_name}: {e}", "error")
-            import traceback
-            self.logger.log(traceback.format_exc(), "error")
-            return None
-```
-
-### Issue: Remote file access fails with mdh
-
-**Problem:** `IOError: Cannot access file via mdh`
-
-**Solution:** Check authentication and file availability:
-
-```bash
-# Verify mdh setup
-muse setup ops
-getToken  # Refresh credentials
-
-# Check file exists in dCache
-mdh locate <filename>
-
-# Test direct file access
-mdh print-url -s path -l tape <filename>
-```
-
-### Issue: Histograms don't save to ROOT file
-
-**Problem:** Output ROOT file is empty or corrupted
-
-**Solution:** Manually save with proper ROOT file handling:
+**Solution:** Monitor and control data loading:
 
 ```python
-def end_job(self):
-    """Finalize with manual ROOT file save."""
-    import ROOT
-    
-    # Create output file
-    root_file = ROOT.TFile("output.root", "RECREATE")
-    
-    # Save all histograms
-    for name, hist in self.histograms.items():
-        hist.Write(name)
-    
-    # Save cut flow
-    if hasattr(self, 'cut_flow_df'):
-        # Convert dataframe to ROOT TTree
-        root_file.cd()
-        # ... save as needed ...
-    
-    root_file.Close()
-    self.logger.log("Saved to output.root", "success")
+def process_file(self, file_name):
+    """Process with memory control."""
+    try:
+        # Load only necessary branches
+        data = processor.process_data(
+            file_name, 
+            branches=self.branches  # Minimize branches
+        )
+        
+        # Process immediately, don't accumulate
+        results = analyze(data)
+        return results
+    finally:
+        import gc
+        del data  # Explicit cleanup
+        gc.collect()
 ```
 
-## Key Helper Modules in pyutils
+### Issue: Vector magnitude calculation returns NaN
+
+**Problem:** `vector.get_mag()` returns empty or NaN values
+
+**Solution:** Check momentum field availability and masking:
+
+```python
+# Verify momentum branch is available
+print("Available fields:", data["trksegs"].fields)
+
+# Check for NaN values before calculation
+mom_raw = data["trkfit"]["trksegs"]["mom"]
+print(f"NaN count: {ak.sum(ak.is_nan(mom_raw), axis=-1)}")
+
+# Use safe calculation
+vector = Vector(verbosity=1)  # Enable debug output
+mom_mag = vector.get_mag(data["trkfit"]["trksegs"], 'mom')
+print(f"Result type: {type(mom_mag)}")
+print(f"Sample values: {mom_mag[0, :5]}")
+```
+
+---
+
+## Key Helper Modules
 
 - **`pyutils.pyprocess.Skeleton`** - Base processor class for parallel file processing
 - **`pyutils.pyprocess.Processor`** - Low-level data extraction from ROOT files
 - **`pyutils.pycut.CutManager`** - Track cut efficiency and statistics
-- **`pyutils.pyselect.Select`** - Specialized selection functions (surfaces, particle types, etc.)
-- **`pyutils.pyvector.Vector`** - Physics quantity calculations (momentum, angles, etc.)
+- **`pyutils.pyselect.Select`** - Specialized selection functions (surfaces, particle types)
+- **`pyutils.pyvector.Vector`** - Physics quantity calculations (momentum, angles)
 - **`pyutils.pylogger.Logger`** - Structured logging with verbosity levels
-- **`pyutils.pymcutil.MC`** - MC truth utilities (generator codes, particle IDs, etc.)
 
 ---
 
 ## Resources
 
 - **PyUtils Repository**: https://github.com/Mu2e/pyutils
-- **Mu2e Offline Wiki**: Contains documentation for TrkAna tree structure
-- **Data Handling**: See `finding-data-metacat` and `understanding-data-handling` skills
-- **ROOT Tutorial**: https://root.cern/doc/ROOTUsersGuide/
+- **EventNtuple Branches**: https://github.com/Mu2e/EventNtuple/blob/main/doc/branches.md
+- **Mu2e Offline Wiki**: https://mu2ewiki.fnal.gov/wiki/Main_Page
 - **Awkward Array Docs**: https://awkward-array.org/
+- **ROOT Tutorial**: https://root.cern/doc/ROOTUsersGuide/
 
+---
+
+## See Also
+
+- `setting-up-pyutils` - Installation and first processor setup
+- `coding-with-metacat` - Querying Mu2e ROOT files
+- `finding-data-sam` - Alternative data discovery method
+- `understanding-data-handling` - Mu2e data ecosystem overview
