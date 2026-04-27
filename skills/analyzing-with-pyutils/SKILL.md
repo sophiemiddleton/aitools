@@ -13,6 +13,8 @@ metadata:
 
 Use this skill to develop physics analysis workflows with pyutils. This assumes you've completed the `setting-up-pyutils` skill and have a working processor environment.
 
+**Note: all Mu2e analysis code used for publications of physics results must be reproducible and run in the standard Mu2e environment. This skill focuses on building analysis processors that can be run in that environment, with support for both local and remote files. The user must familarize themselves with the Mu2e physics program prior to attempting to use this skill to avoid AI hallucinations about physics goals and analysis strategies.
+
 Primary use cases:
 - Understand EventNtuple branch structure and field access
 - Define physics cuts and track selection efficiency
