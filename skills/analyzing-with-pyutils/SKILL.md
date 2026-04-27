@@ -54,19 +54,64 @@ EventNtuple data has a nested hierarchy:
 #### Correct vs Incorrect Branch Usage
 
 ```python
-# ✓ CORRECT: trksegs has mom field with x,y,z components as a branch
+# ✓ CORRECT: Use Vector.get_mag() for magnitude calculation
+# Automatically accesses fCoordinates.fX/fY/fZ from ROOT XYZVector
 momentum = vector.get_mag(data["trksegs"], 'mom')
 
-# ✗ INCORRECT: trksegpars_lh does NOT have a 'mom' field
-# (it has LoopHelix parameters like d0, tanDip, rad, lam, cx, cy, phi0, t0)
-momentum = vector.get_mag(data["trksegpars_lh"], 'mom')  # ERROR!
+# ✗ INCORRECT: Direct field access does NOT work for ROOT vectors
+momentum = data["trksegs"]["mom"]          # ERROR! 'mom' is not a direct field
+momentum = data["trksegs.mom"]             # ERROR! Flat field doesn't exist
 
-# ✓ CORRECT: Access LoopHelix parameters directly (scalars)
-d0 = data["trksegpars_lh"]["d0"]
-phi0 = data["trksegpars_lh"]["phi0"]
+# ✗ INCORRECT: Using Vector on wrong branch
+momentum = vector.get_mag(data["trksegpars_lh"], 'mom')  # ERROR! No 'mom' field in LoopHelix
 
-# ✓ CORRECT: Position is a vector field in trksegs
+# ✗ NOTE: LoopHelix parameters (d0, tanDip, rad) may not be available
+# Do NOT use these parameters - stick to momentum, timing, and quality
+
+# ✓ CORRECT: Position is a vector field - use Vector class
 position = vector.get_vector(data["trksegs"], 'pos')  # Returns XYZVector
+position_mag = vector.get_mag(data["trksegs"], 'pos') # Distance from origin
+
+# ✓ CORRECT: Accessing raw coordinate components if needed
+px = data["trksegs"]["mom"]["fCoordinates"]["fX"]
+py = data["trksegs"]["mom"]["fCoordinates"]["fY"]
+pz = data["trksegs"]["mom"]["fCoordinates"]["fZ"]
+```
+
+### ROOT Vector Structure (XYZVectorF)
+
+ROOT stores 3D vectors with the nested structure: `vector.fCoordinates.fX/fY/fZ`. The `Vector` class automatically handles this:
+
+```python
+from pyutils.pyvector import Vector
+
+vector = Vector()
+
+# For momentum vectors:
+mom_mag = vector.get_mag(data["trksegs"], "mom")      # Get magnitude
+pt = vector.get_rho(data["trksegs"], "mom")           # Get transverse magnitude (rho)
+mom_vector = vector.get_vector(data["trksegs"], "mom") # Get full 3D vector object with .x, .y, .z
+
+# The Vector class internally does:
+# mom_x = data["trksegs"]["mom"]["fCoordinates"]["fX"]
+# mom_y = data["trksegs"]["mom"]["fCoordinates"]["fY"]  
+# mom_z = data["trksegs"]["mom"]["fCoordinates"]["fZ"]
+# magnitude = sqrt(mom_x² + mom_y² + mom_z²)
+```
+
+### Important: Preserve Nested Structure When Masking
+
+When filtering data, apply masks to the final result, not intermediate branches:
+
+```python
+# ✓ CORRECT: Get magnitude from full data, then mask the result
+momentum_mag = vector.get_mag(data["trksegs"], "mom")
+at_front = selector.select_surface(data, surface_name="TT_Front")
+momentum_at_front = ak.mask(momentum_mag, at_front)
+
+# ✗ PROBLEMATIC: Masking before get_mag() may lose fCoordinates structure  
+trksegs_masked = ak.mask(data["trksegs"], at_front)
+momentum_mag = vector.get_mag(trksegs_masked, "mom")  # May fail!
 ```
 
 #### Common Branches and Their Fields
@@ -74,7 +119,7 @@ position = vector.get_vector(data["trksegs"], 'pos')  # Returns XYZVector
 | Branch | Type | Fields Available | Purpose |
 |--------|------|------------------|---------|
 | `trksegs` | Vector-of-vector | `mom` (XYZVectorF), `pos` (XYZVectorF), `time`, `dmom`, `momerr` | Track positions and momenta at detector surfaces |
-| `trksegpars_lh` | Vector-of-vector | `d0`, `tanDip`, `rad`, `lam`, `cx`, `cy`, `phi0`, `t0` | LoopHelix fit parameters (looping tracks) |
+| `trksegpars_lh` | Vector-of-vector | *Parameters may not be available in current data* | LoopHelix fit parameters (NOT RECOMMENDED) |
 | `trksegpars_ch` | Vector-of-vector | Same as LoopHelix | CentralHelix fit parameters (field-on cosmics) |
 | `trksegpars_kl` | Vector-of-vector | Same as LoopHelix | KinematicLine fit parameters (field-off cosmics) |
 | `trkqual` | Vector | `result` | Track fit quality metric (0-1) |
@@ -316,14 +361,7 @@ def fill_histograms(self, data):
     for p in mom_flat:
         self.h_momentum.Fill(p)
     
-    # Fill d0 distribution
-    d0_flat = ak.flatten(
-        trkfit_front['trksegpars_lh']['d0'],
-        axis=None
-    )
-    for d0 in d0_flat:
-        self.h_impact_d0.Fill(d0)
-    
+
     # Fill time distribution
     time_flat = ak.flatten(trkfit_front["time"], axis=None)
     for t in time_flat:
