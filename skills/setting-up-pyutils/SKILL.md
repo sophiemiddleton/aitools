@@ -52,17 +52,11 @@ pip install -e .
 
 ### Environment Setup
 
-The preferred way to set up the environment for working with pyutils is using the standard Mu2e environment:
-
-```bash
-mu2einit  # Initialize Mu2e environment (always first)
-```
-
-For full Mu2e environment integration with muse:
+The preferred way to set up the environment for working with pyutils is using the standard Mu2e python environment:
 
 ```bash
 mu2einit
-muse setup
+pyenv ana
 ```
 
 This ensures ROOT, art modules, and other Mu2e dependencies are available alongside pyutils.
